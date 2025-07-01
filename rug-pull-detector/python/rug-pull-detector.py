@@ -46,7 +46,17 @@ pair_abi = [
      "outputs": [{"name": "reserve0", "type": "uint112"}, {"name": "reserve1", "type": "uint112"},
                  {"name": "blockTimestampLast", "type": "uint32"}], "stateMutability": "view", "type": "function"},
     {"constant": True, "inputs": [], "name": "decimals", "outputs": [{"name": "", "type": "uint8"}],
-     "stateMutability": "view", "type": "function"}
+     "stateMutability": "view", "type": "function"},
+    {"constant": True, "inputs": [{"name": "owner", "type": "address"}], "name": "balanceOf", 
+     "outputs": [{"name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"},
+    {"anonymous": False, "inputs": [
+        {"indexed": True, "name": "sender", "type": "address"},
+        {"indexed": False, "name": "amount0In", "type": "uint256"},
+        {"indexed": False, "name": "amount1In", "type": "uint256"},
+        {"indexed": False, "name": "amount0Out", "type": "uint256"},
+        {"indexed": False, "name": "amount1Out", "type": "uint256"},
+        {"indexed": True, "name": "to", "type": "address"}
+    ], "name": "Swap", "type": "event"}
 ]
 
 token_abi = [
@@ -63,6 +73,8 @@ token_abi = [
         "type": "function"
     },
     {"constant": True, "inputs": [], "name": "decimals", "outputs": [{"name": "", "type": "uint8"}],
+     "stateMutability": "view", "type": "function"},
+    {"constant": True, "inputs": [], "name": "owner", "outputs": [{"name": "", "type": "address"}],
      "stateMutability": "view", "type": "function"}
 ]
 
@@ -78,7 +90,7 @@ if web3.is_connected():
 #WALL STREET PEPE -  0x00006955ab0269a2ebf21702740536f6af139bc1
 #GG TOKEN - 0x000000000000a59351f61b598e8da953b9e041ec
 
-input_token_address = "0x000000000000a59351f61b598e8da953b9e041ec"
+input_token_address = "0x768BE13e1680b5ebE0024C42c896E3dB59ec0149"
 
 # Uniswap V2 Factory contract address 
 uniswap_v2_factory_address = "0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6"
@@ -134,6 +146,83 @@ def check_minting_ability(token_contract):
         return {"mintable": True, "supplyStatus": "NOT FIXED"}
     except:
         return {"mintable": False, "supplyStatus": "FIXED"}
+
+def get_24h_volume(pair_contract):
+    try:
+        latest_block = web3.eth.block_number
+        blocks_per_day = 24 * 60 * 60 // 12
+        past_block = max(0, latest_block - blocks_per_day)
+
+        # Swap event signature
+        swap_event_signature = web3.keccak(text="Swap(address,uint256,uint256,uint256,uint256,address)").hex()
+
+        # Get Swap events from past 24h
+        logs = web3.eth.get_logs({
+            "fromBlock": past_block,
+            "toBlock": latest_block,
+            "address": pair_contract.address,
+            "topics": [swap_event_signature if swap_event_signature.startswith('0x') else '0x' + swap_event_signature]
+        })
+
+        total_volume_token0 = 0
+        total_volume_token1 = 0
+
+        if not logs:
+            print("No swaps detected in the last 24 hours.")
+            return 0, 0
+
+        # Process each log
+        for log in logs:
+            data = web3.eth.contract(address=pair_contract.address, abi=pair_abi).events.Swap().process_log(log)
+            total_volume_token0 += data["args"]["amount0In"]
+            total_volume_token1 += data["args"]["amount1In"]
+
+        return total_volume_token0, total_volume_token1
+
+    except Exception as e:
+        print(f"Error fetching 24h volume: {e}")
+
+def check_ownership_status(token_address):
+    try:
+        token_contract = web3.eth.contract(address=web3.to_checksum_address(token_address), abi=token_abi)
+        owner_address = token_contract.functions.owner().call()
+        if owner_address == ZERO_address:
+            return {"status": "RENOUNCED", "safe": True}
+        else:
+            return {"status": "OWNED", "safe": False}
+    except:
+        return {"status": "NO_OWNER_FUNCTION", "safe": True}
+
+
+def check_self_destruct(web3, contract_address):
+    bytecode = web3.eth.get_code(contract_address).hex()
+    if "ff" in bytecode or "f0" in bytecode:
+        print("YES (Self-Destruct Opcode Found)")
+        return "YES"
+    print("NO (Contract is Permanent)")
+    return "NO"
+
+def get_liquidity_status(pair_contract, token_contract, is_token0=True):
+    try:
+        reserves = pair_contract.functions.getReserves().call()
+        reserve = reserves[0] if is_token0 else reserves[1]
+
+        total_supply = token_contract.functions.totalSupply().call()
+
+        if total_supply == 0:
+            return "UNKNOWN"
+
+        locked_percent = (reserve / total_supply) * 100
+
+        if locked_percent > 99:
+            return "LOCKED"
+        elif locked_percent < 1:
+            return "FULLY UNLOCKED"
+        else:
+            return "PARTIALLY LOCKED"
+
+    except Exception as e:
+        return f"Error computing liquidity status: {e}"
 
 def find_pair_by_token(token_address):
     pair_address_usdc = factory_contract.functions.getPair(
@@ -234,13 +323,6 @@ pair_token_symbol = pair_token_contract.functions.symbol().call()
 print(f"Pair Token Name: {pair_token_name}")
 print(f"Pair Token Symbol: {pair_token_symbol}")
 
-# Liquidity Information
-print("\n💧 LIQUIDITY INFORMATION")
-print("-" * 40)
-print(f"Liquidity Pair Address: {pair_address}")
-total_lp_tokens = pair_contract.functions.totalSupply().call()
-print(f"Total Supply of LP Tokens: {total_lp_tokens}")
-
 # Market Analysis
 print("\n💰 MARKET ANALYSIS")
 print("-" * 40)
@@ -258,6 +340,31 @@ print("-" * 40)
 minting_status = check_minting_ability(token_contract)
 print(f"Mint Status: {'MINTABLE' if minting_status['mintable'] else 'NOT MINTABLE'}")
 print(f"Total Supply Status: {minting_status['supplyStatus']}")
+
+# Additional Rug Pull Checks
+print("\n🚨 RUG PULL RISK ANALYSIS")
+print("-" * 40)
+
+# 24H Volume
+volume_data = get_24h_volume(pair_contract)
+if volume_data:
+    volume_token0, volume_token1 = volume_data
+    print(f"24H Volume Token0: {volume_token0} {token_symbol}")
+    print(f"24H Volume Token1: {volume_token1} {pair_token_symbol}")
+else:
+    print("Could not fetch 24H volume data")
+
+# Ownership Check
+ownership_data = check_ownership_status(input_token)
+print(f"Ownership: {ownership_data['status']} ({'✅ Safe' if ownership_data['safe'] else '⚠️ Risk'})")
+
+# Self Destruct Check
+selfdestruct_data = check_self_destruct(web3, input_token)
+print(f"Self-Destruct Risk: {'HIGH' if selfdestruct_data == 'YES' else 'LOW'}")
+
+# Liquidity Status
+liquidity_data = get_liquidity_status(pair_contract, token_contract, True)
+print(f"Liquidity: {liquidity_data}")
 
 print("\n" + "=" * 80)
 print("End of Report")
