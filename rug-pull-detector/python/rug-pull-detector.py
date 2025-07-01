@@ -2,6 +2,7 @@ from web3 import Web3
 import datetime
 import io
 import sys
+import os
 from decimal import Decimal
 
 uniswap_v2_factory_abi = [  # Minimal ABI for Factory contract
@@ -73,7 +74,11 @@ if web3.is_connected():
     print("Connected to Base Chain")
 
 # Input token address 
-input_token_address = "0x768BE13e1680b5ebE0024C42c896E3dB59ec0149"
+#SKI MASK DOG - 0x768BE13e1680b5ebE0024C42c896E3dB59ec0149
+#WALL STREET PEPE -  0x00006955ab0269a2ebf21702740536f6af139bc1
+#GG TOKEN - 0x000000000000a59351f61b598e8da953b9e041ec
+
+input_token_address = "0x000000000000a59351f61b598e8da953b9e041ec"
 
 # Uniswap V2 Factory contract address 
 uniswap_v2_factory_address = "0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6"
@@ -82,10 +87,33 @@ uniswap_v2_factory_address = "0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6"
 USDC_contract = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
 WETH_contract = '0x4200000000000000000000000000000000000006'
 ZERO_address = '0x0000000000000000000000000000000000000000'
+WETH_USDC_PAIR = '0x88A43bbDF9D098eEC7bCEda4e2494615dfD9bB9C'
 
 # Create contract instance for the Uniswap V2 Factory
 factory_contract = web3.eth.contract(address=web3.to_checksum_address(uniswap_v2_factory_address),
                                      abi=uniswap_v2_factory_abi)
+
+
+def get_price_per_eth():
+    pair_contract = web3.eth.contract(address=web3.to_checksum_address(WETH_USDC_PAIR), abi=pair_abi)
+    reserves = pair_contract.functions.getReserves().call()
+    token0 = pair_contract.functions.token0().call()
+    token1 = pair_contract.functions.token1().call()
+
+    reserve0 = Decimal(reserves[0])
+    reserve1 = Decimal(reserves[1])
+
+    decimals0 = Decimal(10 ** get_token_decimals(token0))
+    decimals1 = Decimal(10 ** get_token_decimals(token1))
+
+    if token0 == WETH_contract:
+        price = (reserve1 / decimals1) / (reserve0 / decimals0)
+    elif token1 == WETH_contract:
+        price = (reserve0 / decimals0) / (reserve1 / decimals1)
+    else:
+        raise Exception("WETH not found in this pair")
+
+    return price
 
 def get_token_decimals(token_address):
     if token_address == USDC_contract:
@@ -131,15 +159,22 @@ def calculate_market_cap(pair_contract):
         reserves = pair_contract.functions.getReserves().call()
         token0 = pair_contract.functions.token0().call()
         token1 = pair_contract.functions.token1().call()
-        
+        pricePerEth = get_price_per_eth()        
         token_total_supply = get_token_total_supply(token0)
         
         # Normalize values using decimals
         reserve0_normalized = Decimal(reserves[0]) / Decimal(10 ** get_token_decimals(token0))
         reserve1_normalized = Decimal(reserves[1]) / Decimal(10 ** get_token_decimals(token1))
-        price_per_token = reserve1_normalized / reserve0_normalized
+        if(token1 == USDC_contract):
+            price_per_token = reserve1_normalized / reserve0_normalized
+        else:
+            price_per_token = reserve1_normalized / reserve0_normalized * pricePerEth
+
         total_supply_normalized = Decimal(token_total_supply) / Decimal(10 ** get_token_decimals(token0))
-        market_cap = total_supply_normalized * price_per_token
+        if(token1 == USDC_contract):
+            market_cap = total_supply_normalized * price_per_token
+        else:
+            market_cap = total_supply_normalized * price_per_token * pricePerEth
         
         return {
             "reserves": reserves,
@@ -213,9 +248,9 @@ market_cap_data = calculate_market_cap(pair_contract)
 if market_cap_data:
     print(f"Reserve {token_symbol}: {market_cap_data['reserves'][0]}")
     print(f"Reserve {pair_token_symbol}: {market_cap_data['reserves'][1]}")
-    print(f"Price per {token_symbol}: {market_cap_data['pricePerToken']} {pair_token_symbol}")
+    print(f"Price per {token_symbol}: {market_cap_data['pricePerToken']} USDC")
     print(f"Total Supply: {market_cap_data['totalSupplyNormalized']}")
-    print(f"Market Cap: {market_cap_data['marketCap']} {pair_token_symbol}")
+    print(f"Market Cap: {market_cap_data['marketCap']} USDC")
 
 # Supply Analysis
 print("\n🪄 SUPPLY ANALYSIS")
@@ -233,7 +268,8 @@ sys.stdout = sys.__stdout__
 output_text = buffer.getvalue()
 
 # Save to text file
-txt_filename = '/data/outputs/report.txt'
+txt_filename = './data/outputs/report.txt'
+os.makedirs(os.path.dirname(txt_filename), exist_ok=True)
 with open(txt_filename, 'w') as f:
     f.write(output_text)
 
