@@ -4,6 +4,8 @@ import io
 import sys
 import os
 from decimal import Decimal
+import requests
+import json
 
 uniswap_v2_factory_abi = [  # Minimal ABI for Factory contract
     {
@@ -78,6 +80,8 @@ token_abi = [
      "stateMutability": "view", "type": "function"}
 ]
 
+
+API_KEY_ASI1 = "<API_KEY_ASI1>"
 BASE_RPC_URL = "https://base.drpc.org"  # Base RPC URL
 web3 = Web3(Web3.HTTPProvider(BASE_RPC_URL))
 
@@ -277,6 +281,36 @@ def calculate_market_cap(pair_contract):
         print(f"Error calculating market cap: {e}")
         return None
 
+
+def get_asi1_analysis(output_text):
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "bearer " + API_KEY_ASI1,
+    }
+    payload = json.dumps({
+                "model": "asi1-mini",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": f"Please provide positive aspects, potential risks and recommendations regarding this token with the following. Be precise and concise. Do not include any other text than the analysis and do not format the text, just spacing. The analysis should be done on this text: {output_text}. "
+                    }
+                ],
+                "temperature": 0,
+                "stream": False
+            })
+    try:
+        response = requests.post('https://api.asi1.ai/v1/chat/completions', headers=headers, data=payload).json()
+        if 'choices' in response and len(response['choices']) > 0:
+            ai_content = response['choices'][0]['message']['content']
+            return output_text + "\n\n🤖 AI ANALYSIS\n" + "-" * 40 + "\n" + ai_content
+        else:
+            print("\n❌ Error: Invalid AI response format")
+            return output_text
+    except Exception as e:
+        print(f"\n❌ Error getting AI analysis: {e}")
+        return output_text
+
+    
 # Main execution
 pair_info = find_pair_by_token(input_token_address)
 if pair_info is None:
@@ -328,6 +362,7 @@ print("\n💰 MARKET ANALYSIS")
 print("-" * 40)
 market_cap_data = calculate_market_cap(pair_contract)
 if market_cap_data:
+    print(f"Pair Address: {pair_address}")
     print(f"Reserve {token_symbol}: {market_cap_data['reserves'][0]}")
     print(f"Reserve {pair_token_symbol}: {market_cap_data['reserves'][1]}")
     print(f"Price per {token_symbol}: {market_cap_data['pricePerToken']} USDC")
@@ -366,10 +401,6 @@ print(f"Self-Destruct Risk: {'HIGH' if selfdestruct_data == 'YES' else 'LOW'}")
 liquidity_data = get_liquidity_status(pair_contract, token_contract, True)
 print(f"Liquidity: {liquidity_data}")
 
-print("\n" + "=" * 80)
-print("End of Report")
-print("=" * 80)
-
 sys.stdout = sys.__stdout__
 
 output_text = buffer.getvalue()
@@ -377,8 +408,13 @@ output_text = buffer.getvalue()
 # Save to text file
 txt_filename = './data/outputs/report.txt'
 os.makedirs(os.path.dirname(txt_filename), exist_ok=True)
-with open(txt_filename, 'w') as f:
-    f.write(output_text)
 
-print(f"✅ Output saved to {txt_filename} \n")
-print(output_text)
+# Get AI analysis
+ai_analysis = get_asi1_analysis(output_text)
+
+# Save the complete report including AI analysis
+with open(txt_filename, 'w') as f:
+    f.write(ai_analysis)
+
+print(f"\n✅ Output saved to {txt_filename}")
+print(ai_analysis)
