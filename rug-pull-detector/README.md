@@ -11,26 +11,25 @@ indicators. The results are saved into a text report (`report.txt`) titled "TOKE
 1. Connects to the Base chain via an RPC endpoint.
 2. Interacts with the Uniswap V2 Factory contract.
 3. Based on the input token address, it finds the corresponding pair backed up by WETH or USDC.
-4. For each pair, it fetches:
-
-   - Pair address
-   - Token details (name, symbol, addresses)
-   - Total Supply of LP Tokens
-   - Market cap (calculated based on liquidity pool reserves)
-   - Minting capabilities
-   - Total Supply Status
-
-5. Prints results to console and saves them to a text file.
+4. Uses ASI1 to analyze the results and provides an analysis report.
 
 ## 📊 Parameters Analyzed Per Token or Pair
 
-| Parameter                   | Description                                                |
-| --------------------------- | :--------------------------------------------------------: |
+
+| Parameter                   | Description                                               |
+| --------------------------- | :--------------------------------------------------------:|
 | `Token Name / Symbol`       | Identity of the token in the pair                         |
 | `Total Supply of LP Tokens` | How many LP tokens exist for the pair                     |
 | `Market Cap`                | Estimated based on liquidity pool reserves                |
+| `Price per Token`           | Price of the token in the pair                            |
+| `LP reserves`               | How much of each token is in the liquidity pool           |
 | `Minting Ability`           | Can new tokens be minted? `MINTABLE` or `NOT MINTABLE`    |
-| `Total Supply Status`       | If minting is disabled, it's `FIXED`; otherwise `NOT FIXED` |
+| `Total Supply Status`       | If minting is disabled, it's `FIXED` otherwise `NOT FIXED`|
+| `24H Volume Token0`         | 24-hour volume of the first token in the pair             |
+| `24H Volume Token1`         | 24-hour volume of the second token in the pair            |
+| `Ownership`                 | Check if the ownership is renounced                       |
+| `Self-Destruct Risk`        | Check if the self-destruct opcode is found                |
+| `Liquidity`                 | Check if the liquidity is fully unlocked                  |
 
 ## 📁 Input
 
@@ -42,7 +41,7 @@ indicators. The results are saved into a text report (`report.txt`) titled "TOKE
 - You can use [The graph](https://thegraph.com/explorer/subgraphs/D31gzGUtVNhHNdnxeELUBdch5rzDRm5cddvae9GzhCLu?view=Query) to fetch new token addresses
 ```
 {
-  tokens(first: 5, orderBy: tradeVolumeUSD, orderDirection: desc) {
+  tokens(first: 25) {
     id
     symbol
     name
@@ -51,13 +50,10 @@ indicators. The results are saved into a text report (`report.txt`) titled "TOKE
 }
 ``` 
 
-
-
-
 ## 📁 Output
 - Console output with all parameters per pair
+- ASI1 analysis report
 - A text report saved as `report.txt` in the `data/outputs` directory
-- Title: `"TOKEN ANALYSIS REPORT"`
 
 ## How to run your algorithm on Ocean Node
 
@@ -67,17 +63,6 @@ indicators. The results are saved into a text report (`report.txt`) titled "TOKE
 3. Select Results folder
 4. Press Start Compute Job
 ```
-
-#  Python
-### Use existing docker image `oceanprotocol/c2d_examples:py-general`:
-
-- Docker image: `oceanprotocol/c2d_examples`
-- Docker tag: `py-general`
-
-#  Node.js
-### Use existing docker image `oceanprotocol/c2d_examples:js-general`:
-- Docker image: `oceanprotocol/c2d_examples`
-- Docker tag: `js-general`
 
 ## 🔐 Disclaimer
 This tool is for research and educational purposes. It is not a financial advice tool.
