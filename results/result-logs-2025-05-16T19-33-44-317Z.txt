@@ -1,0 +1,1 @@
+Grid image saved at: /data/outputs/filters_grid.png
