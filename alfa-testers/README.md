@@ -66,7 +66,7 @@ Participants should be familiar with **basic Docker operations**, including:
 |------------|--------------|
 | **CPU** | 2 physical cores (4 threads recommended) |
 | **RAM** | 16 GB minimum per GPU |
-| **GPU** | At least one discrete GPU (NVIDIA / AMD / Intel) |
+| **GPU** | At least one discrete GPU with minimum 8GB VRAM (NVIDIA / AMD / Intel) |
 | **Disk** | SSD with ≥ 50 GB free |
 | **Network** | Stable connection for image pulls and node sync |
 
