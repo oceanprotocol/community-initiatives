@@ -94,7 +94,7 @@ if web3.is_connected():
 #WALL STREET PEPE -  0x00006955ab0269a2ebf21702740536f6af139bc1
 #GG TOKEN - 0x000000000000a59351f61b598e8da953b9e041ec
 
-input_token_address = "0x768BE13e1680b5ebE0024C42c896E3dB59ec0149"
+input_token_address = "0x000000000000a59351f61b598e8da953b9e041ec"
 
 # Uniswap V2 Factory contract address 
 uniswap_v2_factory_address = "0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6"
