@@ -33,7 +33,7 @@ GPU node operators
 ---
 
 ### **Selection & Rewards**
-1. Node selection will be on a **first come, first served** basis, up to **15 testers**.  
+1. Node selection will be on a **first come, first served** basis, up to **15 testers**. Only **one node/owner** is allowed.
 2. Node testing will be performed against our benchmark.  
 3. Rewards will be awarded **only if the node passes all initial tests**.  
 4. Rewards for the **“Alpha Testers”** initiative will be distributed **within 2–4 weeks** after the final benchmark tests.  
